@@ -1,0 +1,66 @@
+import tkinter as tk
+from tkinter import ttk
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import pandas as pd
+
+# Leer el archivo Excel actualizado
+df = pd.read_excel("informacion_facturas.xls")
+
+# Calcular la cantidad total en dólares
+total_dolares = df["Total"].sum()
+
+# Encontrar la abreviación con más facturas
+abreviacion_mas_facturas = df["Abreviación"].mode()
+
+# Crear una nueva columna con el número de orden
+df["Número de orden"] = df.index + 1
+
+# Calcular el total de facturas
+total_facturas = len(df)
+
+# Crear la ventana principal
+ventana = tk.Tk()
+ventana.title("Visualización de Datos")
+
+# Crear un Treeview para mostrar la tabla de datos
+tree = ttk.Treeview(ventana)
+tree["columns"] = list(df.columns)
+tree["show"] = "headings"
+for col in df.columns:
+    tree.heading(col, text=col)
+    tree.column(col, width=100)
+for index, row in df.iterrows():
+    tree.insert("", tk.END, values=list(row))
+tree.pack()
+
+# Crear un gráfico de barras del total por número de orden
+fig, ax = plt.subplots()
+ax.bar(df["Número de orden"], df["Total"])
+ax.set_xlabel("Número de orden")
+ax.set_ylabel("Total")
+ax.set_title("Total por número de orden")
+
+# Integrar el gráfico en la ventana Tkinter
+canvas = FigureCanvasTkAgg(fig, master=ventana)
+canvas.draw()
+canvas.get_tk_widget().pack()
+
+# Mostrar la cantidad total en dólares
+label_total = tk.Label(ventana, text=f"Cantidad total en $: {total_dolares}")
+label_total.pack()
+
+# Mostrar la abreviación con más facturas
+label_abreviacion = tk.Label(ventana,
+                             text=f"Abreviación con más facturas: {abreviacion_mas_facturas}")
+label_abreviacion.pack()
+
+# Crear un recuadro con el total de facturas
+label_total_facturas = tk.Label(ventana,
+                                 text=f"Total de facturas: {total_facturas}",
+                                 relief="solid",
+                                 borderwidth=1)
+label_total_facturas.pack(pady=5)
+
+ventana.mainloop()
