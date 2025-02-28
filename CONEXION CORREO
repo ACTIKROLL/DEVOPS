@@ -1,0 +1,51 @@
+import imaplib
+import email
+import os
+
+# Credenciales de la cuenta de correo electrónico
+EMAIL_ADDRESS = "-----------"  # Tu correo electrónico
+PASSWORD = "........4"
+
+# Configuración del servidor IMAP (para Outlook)
+IMAP_SERVER = "outlook.office365.com"  # Servidor IMAP para Outlook
+IMAP_PORT = 993
+
+# Ruta de la carpeta de facturas
+INVOICE_FOLDER = "C:\\Users\\angel\\Desktop\\FACTURAS"
+
+def download_invoices():
+    """Se conecta al servidor de correo electrónico y descarga las nuevas facturas."""
+
+    # Conectar al servidor IMAP
+    mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
+    mail.login(EMAIL_ADDRESS, PASSWORD)
+    mail.select("FACTURAS NEUROAI")  # Seleccionar la carpeta "FACTURAS NEUROAI"
+
+    # Buscar correos electrónicos con archivos adjuntos
+    _, message_ids = mail.search(None, '(FROM "correo_del_remitente@ejemplo.com")', '(UNSEEN)')
+
+    for message_id in message_ids.split():
+        _, message_data = mail.fetch(message_id, "(RFC822)")
+        raw_email = message_data
+        email_message = email.message_from_bytes(raw_email)
+
+        for part in email_message.walk():
+            if part.get_content_maintype() == "multipart":
+                continue
+            if part.get("Content-Disposition") is None:
+                continue
+
+            # Descargar el archivo adjunto
+            filename = part.get_filename()
+            if filename and filename.endswith(".pdf"):
+                filepath = os.path.join(INVOICE_FOLDER, filename)
+                with open(filepath, "wb") as f:
+                    f.write(part.get_payload(decode=True))
+                print(f"Factura descargada: {filename}")
+
+    # Cerrar la conexión
+    mail.close()
+    mail.logout()
+
+if __name__ == "__main__":
+    download_invoices()
