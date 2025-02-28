@@ -1,0 +1,145 @@
+import os
+import shutil
+import signal
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import tkinter.ttk as ttk
+from PIL import Image, ImageTk
+
+def ejecutar_script():
+    """Ejecuta el script 'extraer_pdf.py' en el entorno virtual."""
+    estado_label.config(text="Extrayendo datos...")
+    barra_progreso.start()
+    ventana.update_idletasks()
+    os.system('call C:\\Users\\angel\\Desktop\\CODIGO\\.venv\\Scripts\\activate && python extraer_pdf.py')
+    barra_progreso.stop()
+    estado_label.config(text="Datos extraídos")
+
+def borrar_pdf():
+    """Borra un archivo PDF seleccionado por el usuario."""
+    archivo = filedialog.askopenfilename(initialdir="C:\\Users\\angel\\Desktop\\FACTURAS", title="Seleccionar archivo PDF para borrar", filetypes=(("Archivos PDF", "*.pdf"),))
+    if archivo:
+        os.remove(archivo)
+        estado_label.config(text=f"Archivo {archivo} borrado.")
+
+def salir():
+    """Cierra la ventana y termina el proceso de 'visualizar_datos.py'."""
+    try:
+        with open('visualizar_datos.pid', 'r') as f:
+            pid_str = f.read().strip()  # Leer el contenido del archivo y eliminar espacios en blanco
+            if pid_str:  # Verificar si el contenido no está vacío
+                pid = int(pid_str)  # Convertir a entero solo si hay un valor
+                os.kill(pid, signal.SIGTERM)
+        os.remove('visualizar_datos.pid')
+    except FileNotFoundError:
+        pass
+    except ValueError:
+        print("Error: El archivo 'visualizar_datos.pid' no contiene un PID válido.")
+    finally:
+        ventana.destroy()  # Cerrar la ventana en cualquier caso
+
+def visualizar_datos():
+    """Ejecuta el script 'visualizar_datos.py' en un proceso separado."""
+    def ejecutar_streamlit():
+        pid = os.getpid()
+        os.system(f'call C:\\Users\\angel\\Desktop\\CODIGO\\.venv\\Scripts\\activate && streamlit run visualizar_datos.py &')
+        with open('visualizar_datos.pid', 'w') as f:
+            f.write(str(pid))
+    estado_label.config(text="Visualizando datos...")
+    barra_progreso.start()
+    threading.Thread(target=ejecutar_streamlit).start()
+    barra_progreso.stop()
+    estado_label.config(text="Visualización iniciada")
+
+def agregar_facturas():
+    """Agrega facturas desde la carpeta de Descargas."""
+    archivos = filedialog.askopenfilenames(initialdir="C:\\Users\\angel\\Downloads", title="Seleccionar archivos PDF", filetypes=(("Archivos PDF", "*.pdf"),))
+    for archivo in archivos:
+        try:
+            shutil.move(archivo, "C:\\Users\\angel\\Desktop\\FACTURAS")
+            estado_label.config(text=f"Archivo {archivo} movido a FACTURAS.")
+        except Exception as e:
+            estado_label.config(text=f"Error al mover {archivo}: {e}")
+
+def eliminar_excel():
+    """Elimina el archivo Excel 'informacion_facturas.xls'."""
+    try:
+        os.remove("informacion_facturas.xls")
+        estado_label.config(text="Excel eliminado")
+        messagebox.showinfo("Éxito", "El archivo Excel ha sido eliminado con éxito.")
+    except FileNotFoundError:
+        estado_label.config(text="Excel no encontrado")
+        messagebox.showerror("Error", "No se encontró el archivo Excel 'informacion_facturas.xls'.")
+    except Exception as e:
+        estado_label.config(text=f"Error al eliminar Excel: {e}")
+        messagebox.showerror("Error", f"Error al eliminar el archivo Excel: {e}")
+
+def abrir_excel():
+    """Abre el archivo Excel 'informacion_facturas.xls'."""
+    try:
+        os.startfile("informacion_facturas.xls")
+        estado_label.config(text="Excel abierto")
+    except FileNotFoundError:
+        estado_label.config(text="Excel no encontrado")
+        messagebox.showerror("Error", "No se encontró el archivo Excel 'informacion_facturas.xls'.")
+    except Exception as e:
+        estado_label.config(text=f"Error al abrir Excel: {e}")
+        messagebox.showerror("Error", f"Error al abrir el archivo Excel: {e}")
+
+# Crear la ventana principal
+ventana = tk.Tk()
+ventana.title("Extractor de Facturas")
+ventana.geometry("700x800")
+
+# Configurar el grid para que los widgets se expandan correctamente
+for i in range(8):
+    ventana.grid_rowconfigure(i, weight=1)
+ventana.grid_columnconfigure(0, weight=1)
+ventana.grid_columnconfigure(1, weight=1)
+
+# Cargar imagen y mostrarla
+imagen = Image.open('imagen.jpg').resize((150, 175))
+imagen_tk = ImageTk.PhotoImage(imagen)
+etiqueta_imagen = tk.Label(ventana, image=imagen_tk)
+etiqueta_imagen.grid(row=0, column=0, columnspan=2, pady=20)
+
+# Cargar iconos
+iconos = {
+    "Extraer Datos": ImageTk.PhotoImage(Image.open("icono_ejecutar.png").resize((20, 20))),
+    "Borrar PDF": ImageTk.PhotoImage(Image.open("icono_borrar.png").resize((20, 20))),
+    "Visualizar Datos": ImageTk.PhotoImage(Image.open("icono_visualizar.png").resize((20, 20))),
+    "Agregar Facturas": ImageTk.PhotoImage(Image.open("icono_agregar.png").resize((20, 20))),
+    "Eliminar Excel": ImageTk.PhotoImage(Image.open("icono_eliminar_excel.png").resize((20, 20))),
+    "Ver Excel": ImageTk.PhotoImage(Image.open("icono_abrir_excel.png").resize((20, 20))),
+    "Salir": ImageTk.PhotoImage(Image.open("icono_salir.png").resize((20, 20))),
+}
+
+# Estilo para botones
+style = ttk.Style()
+style.configure("TButton", padding=10, font=("Arial", 12))
+
+# Crear botones y organizarlos en el grid
+botones = [
+    ("Extraer Datos", ejecutar_script),
+    ("Borrar PDF", borrar_pdf),
+    ("Visualizar Datos", visualizar_datos),
+    ("Agregar Facturas", agregar_facturas),
+    ("Eliminar Excel", eliminar_excel),
+    ("Ver Excel", abrir_excel),
+    ("Salir", salir),
+]
+
+for i, (texto, comando) in enumerate(botones):
+    boton = ttk.Button(ventana, text=texto, command=comando, image=iconos[texto], compound=tk.LEFT)
+    boton.grid(row=i // 2 + 1, column=i % 2, padx=20, pady=15, sticky="ew")
+
+# Barra de progreso
+barra_progreso = ttk.Progressbar(ventana, mode="indeterminate")
+barra_progreso.grid(row=7, column=0, columnspan=2, pady=15, sticky="ew")  # Mover a la fila 7
+
+# Etiqueta de estado
+estado_label = tk.Label(ventana, text="")
+estado_label.grid(row=6, column=0, columnspan=2, pady=15)  # Mover a la fila 6
+
+ventana.mainloop()
