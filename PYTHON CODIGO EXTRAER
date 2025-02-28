@@ -1,0 +1,99 @@
+import os
+import PyPDF2
+import re
+import xlwt
+
+def extraer_info_pdf(ruta_carpeta):
+    """
+    Extrae información específica de archivos PDF de facturas y la guarda en un archivo Excel con formato.
+
+    Args:
+        ruta_carpeta (str): La ruta a la carpeta que contiene los archivos PDF.
+    """
+
+    # Crear un nuevo libro de trabajo de Excel
+    libro_trabajo = xlwt.Workbook()
+    hoja = libro_trabajo.add_sheet("Información de facturas")
+
+    # Estilo para el encabezado
+    estilo_encabezado = xlwt.easyxf("font: bold on; align: horiz center")
+
+    # Estilo para la columna "Total" (Contabilidad)
+    estilo_total = xlwt.easyxf(num_format_str='#,##0.00')  # Formato numérico con dos decimales
+
+    # Escribir encabezados
+    encabezados = ["Número de factura", "SUC", "Abreviación", "Fecha de factura", "Folio Fiscal", "Referencia", "Total"]
+    for i, encabezado in enumerate(encabezados):
+        hoja.write(0, i, encabezado, estilo_encabezado)
+
+    fila = 1  # Iniciar en la fila 1 (la fila 0 es para los encabezados)
+
+    for nombre_archivo in os.listdir(ruta_carpeta):
+        if nombre_archivo.endswith(".pdf"):
+            ruta_archivo_completa = os.path.join(ruta_carpeta, nombre_archivo)
+
+            try:
+                with open(ruta_archivo_completa, "rb") as archivo_pdf:
+                    lector_pdf = PyPDF2.PdfReader(archivo_pdf)
+                    texto_completo = ""
+                    for pagina in lector_pdf.pages:
+                        texto_completo += pagina.extract_text()
+
+                    # Expresiones regulares
+                    num_factura_match = re.search(r"FA/\d+", texto_completo)
+                    referencia_match = re.search(r"OC\s*\d{10}", texto_completo)
+                    total_match = re.search(r"Total\s*(\$\s*[\d,.]+)", texto_completo)  # Expresión regular para Total
+                    folio_fiscal_match = re.search(r"Folio Fiscal:\s*([A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12})", texto_completo)
+
+                    # Información específica
+                    lineas = texto_completo.splitlines()
+                    direccion_entrega = None
+                    fecha_factura = None
+
+                    for i, linea in enumerate(lineas):
+                        if "Dirección de entrega:" in linea:
+                            direccion_entrega = lineas[i + 1].strip()
+                            # Eliminar "TIENDAS CHEDRAUI," de la dirección de entrega
+                            if direccion_entrega.startswith("TIENDAS CHEDRAUI,"):
+                                direccion_entrega = direccion_entrega.replace("TIENDAS CHEDRAUI,", "").strip()
+                        elif "Fecha de factura:" in linea:
+                            fecha_factura = lineas[i + 1].strip()
+
+                    # Extraer el número después de "SUC "
+                    suc_match = re.search(r"SUC (\d+)", direccion_entrega)
+                    suc = suc_match.group(1) if suc_match else None
+
+                    # Extraer la abreviación
+                    abreviacion_match = re.search(r"(\w+) SUC", direccion_entrega)
+                    abreviacion = abreviacion_match.group(1) if abreviacion_match else None
+
+                    # Eliminar "OC" de la referencia
+                    referencia = referencia_match.group(0).replace("OC", "") if referencia_match else None
+
+                    # Eliminar "FA/" del número de factura
+                    num_factura = num_factura_match.group(0).replace("FA/", "") if num_factura_match else None
+
+                    # Escribir la información en el archivo Excel
+                    hoja.write(fila, 0, num_factura)
+                    hoja.write(fila, 1, suc)
+                    hoja.write(fila, 2, abreviacion)
+                    hoja.write(fila, 3, fecha_factura)
+                    hoja.write(fila, 4, folio_fiscal_match.group(1) if folio_fiscal_match else None)
+                    hoja.write(fila, 5, referencia)
+
+                    # Escribir el total sin el signo '$' y con el formato original
+                    if total_match:
+                        total = total_match.group(1).replace('$', '').strip()
+                        hoja.write(fila, 6, total)
+
+                    fila += 1
+
+            except Exception as e:
+                print(f"Error al procesar {nombre_archivo}: {e}")
+
+    # Guardar el libro de trabajo
+    libro_trabajo.save("informacion_facturas.xls")
+
+if __name__ == "__main__":
+    ruta_carpeta_facturas = "C:\\Users\\angel\\Desktop\\FACTURAS"
+    extraer_info_pdf(ruta_carpeta_facturas)
